@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>CS180/280A – Proj3A: Image Warping & Mosaicing</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+<header class="container">
+  <h1>Image Warping &amp; Mosaicing (Proj 3A)</h1>
+  <p class="sub">CS180/280A – Intro to Computer Vision & Computational Photography</p>
+  <p class="byline">Author: Mansoor Mamnoon • UC Berkeley</p>
+</header>
+
+<main class="container">
+  <section id="overview">
+    <h2>Overview</h2>
+    <p>
+      The goal of this assignment is to implement image mosaicing end-to-end: acquire projective image pairs,
+      recover homographies via point correspondences, warp images with inverse mapping using both
+      nearest-neighbor and bilinear interpolation (from scratch), and blend into mosaics. I avoided
+      high-level functions like <code>cv2.findHomography</code> and <code>cv2.warpPerspective</code> as required,
+      and implemented the Normalized DLT solver, inverse warping, and simple feathering.
+    </p>
+  </section>
+
+  <section id="a1">
+    <h2>A.1 — Shoot &amp; Digitize (20 pts)</h2>
+    <p><strong>Requirement:</strong> Show at least two sets of images with projective transformations (fixed center of projection, rotate camera). I captured several two-image sets; here are three representative pairs:</p>
+    <div class="grid two">
+      <figure><img src="assets/a1/car_left.jpg" alt="car left"><figcaption>Car — Left</figcaption></figure>
+      <figure><img src="assets/a1/car_center.jpg" alt="car center"><figcaption>Car — Center</figcaption></figure>
+
+      <figure><img src="assets/a1/frathouse_left.jpg" alt="frathouse left"><figcaption>Frathouse — Left</figcaption></figure>
+      <figure><img src="assets/a1/frathouse_center.jpg" alt="frathouse center"><figcaption>Frathouse — Center</figcaption></figure>
+
+      <figure><img src="assets/a1/building12b_left.jpg" alt="building12b left"><figcaption>Building 12B — Left</figcaption></figure>
+      <figure><img src="assets/a1/building12b_center.jpg" alt="building12b center"><figcaption>Building 12B — Center</figcaption></figure>
+    </div>
+    <details><summary>How I shot the data (fixed COP, overlap, etc.)</summary>
+      <ul>
+        <li>I held the phone at one spot (fixed center of projection) and rotated horizontally.</li>
+        <li>I targeted ~50–60% overlap between frames (good for reliable registration).</li>
+        <li>I avoided fisheye/barrel distortion, shot within seconds to keep lighting consistent.</li>
+      </ul>
+    </details>
+  </section>
+
+  <section id="a2">
+    <h2>A.2 — Recover Homographies (20 pts)</h2>
+    <p><strong>Requirement:</strong> Implement <code>computeH(im1_pts, im2_pts)</code> with a linear system (Normalized DLT + least-squares), show correspondences, show system setup, and show the recovered homography.</p>
+
+    <h3>Method (Normalized DLT)</h3>
+    <ol>
+      <li>Normalize points in each image (zero-mean, average radius &rarr; √2).</li>
+      <li>Build the 2N×9 matrix A from correspondences using the homography constraints.</li>
+      <li>Solve <em>Ah = 0</em> via SVD (right singular vector with smallest singular value).</li>
+      <li>Denormalize: <code>H = T2⁻¹ · H_normalized · T1</code> and scale so H[2,2]=1.</li>
+    </ol>
+
+    <h3>Linear system (Ah = 0) — what I actually built</h3>
+<p>
+  For each correspondence <code>(x, y) ↔ (u, v)</code> (after normalization), I add two rows to A:
+</p>
+<pre class="mono small">
+Row(2i)   = [ 0  0  0   -x  -y  -1    v·x   v·y   v ]
+Row(2i+1) = [ x  y  1    0   0   0   -u·x  -u·y  -u ]
+</pre>
+<p>
+  Stacking all pairs gives a <code>2N×9</code> matrix A. I solve <code>Ah = 0</code> with SVD (smallest right-singular vector), then denormalize and scale so <code>H[2,2] = 1</code>.
+</p>
+
+<details><summary>A-matrix preview (first 4 rows) — Car (Left→Center)</summary>
+<pre class="mono small">
+Using points:
+(x,y) → (u,v)
+(1737.97,  670.19) → (1741.46,  666.70)
+(3616.08,  631.79) → (2237.17,  806.34)
+
+A (first 4 rows):
+[  0       0       0   -1737.97   -670.19   -1    666.70*1737.97   666.70*670.19   666.70 ]
+[ 1737.97  670.19  1      0         0        0   -1741.46*1737.97 -1741.46*670.19 -1741.46 ]
+[  0       0       0   -3616.08   -631.79   -1    806.34*3616.08   806.34*631.79   806.34 ]
+[ 3616.08  631.79  1      0         0        0   -2237.17*3616.08 -2237.17*631.79 -2237.17 ]
+</pre>
+</details>
+
+
+    <h3>Datasets & Homographies</h3>
+
+    <article class="pair">
+      <h4>Car (Left → Center)</h4>
+      <div class="grid two">
+        <figure><img src="assets/a1/car_left.jpg" alt=""><figcaption>Image 1 (left)</figcaption></figure>
+        <figure><img src="assets/a1/car_center.jpg" alt=""><figcaption>Image 2 (center)</figcaption></figure>
+      </div>
+      <pre class="mono">H =
+0.589587  -0.380770  675.092438
+0.109207   0.775520    6.960543
+0.000054  -0.000108    1.000000</pre>
+      <details><summary>Sample correspondences (im1_pts → im2_pts)</summary>
+        <pre class="mono small">{"im1_pts": [[1737.97, 670.19], [3616.08, 631.79], [2743.35, 1364.88], [3434.55, 1375.35], [2858.55, 1808.23], [3549.75, 1773.32], [2760.81, 2803.14], [3867.43, 2604.15]],
+"im2_pts": [[1741.46, 666.70], [2237.17, 806.34], [1434.26, 1434.70], [2041.68, 1466.12], [1559.94, 1864.08], [2135.94, 1790.77], [1423.79, 2845.03], [2411.72, 2530.85]]}</pre>
+      </details>
+    </article>
+
+    <article class="pair">
+      <h4>Corridor (Left → Center)</h4>
+      <div class="grid two">
+        <figure><img src="assets/a2/corridor_left.jpg" alt=""><figcaption>Image 1 (left)</figcaption></figure>
+        <figure><img src="assets/a2/corridor_center.jpg" alt=""><figcaption>Image 2 (center)</figcaption></figure>
+      </div>
+      <pre class="mono">H =
+0.944952  -0.163477   87.152115
+0.006115   0.756270 1008.131307
+0.000013  -0.000106   1.000000</pre>
+      <details><summary>Sample correspondences (im1_pts → im2_pts)</summary>
+        <pre class="mono small">{"im1_pts": [[662.77, 1043.72], [3724.30, 1047.21], [969.97, 478.19], [3186.70, 520.08], [1036.30, 324.59], [2247.65, 359.50], [1116.59, 160.52], [2160.37, 177.97]],
+"im2_pts": [[603.43, 2010.70], [3664.95, 1944.37], [976.95, 1424.23], [3061.03, 1441.68], [1022.34, 1288.08], [2160.37, 1298.55], [1120.08, 1137.97], [2087.06, 1155.43]]}</pre>
+      </details>
+    </article>
+
+    <article class="pair">
+      <h4>Poster (Rectification target)</h4>
+      <div class="grid two">
+        <figure><img src="assets/a2/poster_source.jpg" alt=""><figcaption>Source (skewed)</figcaption></figure>
+        <figure><div class="placeholder">Rectified result shown in A.3</div><figcaption>Rectified</figcaption></figure>
+      </div>
+      <pre class="mono">H =
+0.121353  0.027744 1274.635582
+-0.205073 0.539614  634.987366
+-0.000131 -0.000002   1.000000</pre>
+      <details><summary>Sample correspondences (im1_pts → ideal square)</summary>
+        <pre class="mono small">{"im1_pts":[[27.43,890.12],[34.41,2394.70],[882.70,1665.10],[1465.68,2108.45],[2327.94,73.25],[2310.48,342.05],[3951.21,914.55],[3947.72,2370.26]],
+"im2_pts":[[1322.55,1113.54],[1343.50,1933.90],[1629.75,1528.95],[1874.12,1846.63],[2188.30,296.66],[2275.57,474.70],[3710.34,677.17],[3783.65,2279.50]]}</pre>
+      </details>
+    </article>
+  </section>
+
+  <section id="a3">
+    <h2>A.3 — Warp Images (20 pts)</h2>
+    <p><strong>Requirement:</strong> Implement <code>warpImageNearestNeighbor</code> and <code>warpImageBilinear</code> via inverse warping. Apply to 2+ rectification examples and compare quality/speed.</p>
+    <h3>Rectifications (Original → Nearest Neighbor → Bilinear)</h3>
+<div class="grid three">
+  <figure><img src="assets/a3/poster_original.jpg" alt=""><figcaption>Poster — Original (skewed)</figcaption></figure>
+  <figure><img src="assets/a3/poster_rect_nn.jpg" alt=""><figcaption>Poster — NN</figcaption></figure>
+  <figure><img src="assets/a3/poster_rect_bil.jpg" alt=""><figcaption>Poster — Bilinear</figcaption></figure>
+
+  <figure><img src="assets/a3/blackboard_original.jpg" alt=""><figcaption>Blackboard — Original</figcaption></figure>
+  <figure><img src="assets/a3/blackboard_rect_nn.jpg" alt=""><figcaption>Blackboard — NN</figcaption></figure>
+  <figure><img src="assets/a3/blackboard_rect_bil.jpg" alt=""><figcaption>Blackboard — Bilinear</figcaption></figure>
+
+  <figure><img src="assets/a3/macbook_original.jpg" alt=""><figcaption>Macbook — Original</figcaption></figure>
+  <figure><img src="assets/a3/macbook_rect_nn.jpg" alt=""><figcaption>Macbook — NN</figcaption></figure>
+  <figure><img src="assets/a3/macbook_rect_bil.jpg" alt=""><figcaption>Macbook — Bilinear</figcaption></figure>
+
+  <figure><img src="assets/a3/box_original.jpg" alt=""><figcaption>Box — Original</figcaption></figure>
+  <figure><img src="assets/a3/box_rect_nn.jpg" alt=""><figcaption>Box — NN</figcaption></figure>
+  <figure><img src="assets/a3/box_rect_bil.jpg" alt=""><figcaption>Box — Bilinear</figcaption></figure>
+</div>
+
+
+    <h3>Timing & Coverage (from my CSV & meta)</h3>
+    <pre class="mono small">poster: NN=288.24 ms, Bilinear=490.79 ms, coverage≈100%
+blackboard: NN=245.43 ms, Bilinear=443.23 ms, coverage≈100%
+macbook: NN=360.90 ms, Bilinear=670.83 ms, coverage≈100%
+box: NN=277.18 ms, Bilinear=432.17 ms, coverage≈100%</pre>
+
+    <details><summary>Homography snapshots for rectifications (H, chosen order)</summary>
+      <pre class="mono small">Blackboard H:
+0.3681827  -0.0060811  -494.2819
+-0.251258  0.5084417   273.1977
+-0.0002393 0.0000003     1.0
+Order: A (TL,TR,BR,BL)  W=1498 H=1641  Coverage≈100%
+
+Box H:
+0.8969243  4.2886547  -5126.7396
+5.5533951  0.2292686  -9442.3916
+0.0011980  0.0000870      1.0
+Order: B (TL,BL,BR,TR)  W=1944 H=1948  Coverage≈100%
+
+Macbook H:
+1.7513486  -0.1007413  -1052.2326
+0.1149208   1.3343584   -928.54599
+0.0003098  -0.0000748      1.0
+Order: A (TL,TR,BR,BL)  W=2009 H=1863  Coverage≈100%</pre>
+    </details>
+
+    <p><strong>Nearest Neighbor vs Bilinear:</strong> NN is faster but blocky; Bilinear is slower but smoother (less aliasing). All warps used inverse mapping to avoid holes, with bounds computed from transformed corners / chosen rect sizes.</p>
+  </section>
+
+  <section id="a4">
+    <h2>A.4 — Blend into Mosaics (20 pts)</h2>
+    <p><strong>Requirement:</strong> Show 3 mosaics with source images; use weighted averaging (alpha feathering) to reduce seams; explain the procedure.</p>
+    <h3>My Three Mosaics</h3>
+    <div class="grid three">
+      <figure><img src="assets/a4/mosaic_car.jpg" alt=""><figcaption>Car — Mosaic</figcaption></figure>
+      <figure><img src="assets/a4/mosaic_frathouse.jpg" alt=""><figcaption>Frathouse — Mosaic</figcaption></figure>
+      <figure><img src="assets/a4/mosaic_building12b.jpg" alt=""><figcaption>Building 12B — Mosaic</figcaption></figure>
+    </div>
+
+    <details><summary>Blending procedure & canvas sizing</summary>
+      <ul>
+        <li>I compute H (left→center), inverse-warp the left into the center’s canvas.</li>
+        <li>I pre-size the mosaic canvas from the transformed corners to avoid clipping.</li>
+        <li>I use simple feathering: center image gets alpha 1 in the middle that linearly falls to 0 at the edges; the warped image gets a complementary alpha; per-pixel weighted average blends them.</li>
+      </ul>
+      <pre class="mono small">A4 notes:
+Building12b: canvas 6275×4316, time_warpA≈4039 ms
+Car:        canvas 6663×4601, time_warpA≈3928 ms
+Frathouse:  canvas 6196×4316, time_warpA≈3551 ms</pre>
+    </details>
+  </section>
+</main>
+
+<footer class="container">
+  <p>© 2025 Mansoor Mamnoon </p>
+</footer>
+</body>
+</html>
