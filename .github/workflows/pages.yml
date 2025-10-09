@@ -1,14 +1,22 @@
+cd ~/Desktop/"COMPSCI 180"/cs180-proj3a-site
+mkdir -p .github/workflows
+cat > .github/workflows/pages.yml << 'EOF'
 name: Deploy static site to Pages
+
 on:
   push:
     branches: [ "main" ]
+  workflow_dispatch:
+
 permissions:
   contents: read
   pages: write
   id-token: write
+
 concurrency:
   group: "pages"
   cancel-in-progress: true
+
 jobs:
   deploy:
     environment:
@@ -18,12 +26,23 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      # This both configures AND (with enablement:true) enables Pages for the repo
       - name: Setup Pages
         uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: '.'
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+EOF
+
+git add .github/workflows/pages.yml
+git commit -m "Fix Pages workflow: enablement:true"
+git push
