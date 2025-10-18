@@ -310,6 +310,83 @@ Points (x, y) → (u, v)
     </ul>
   </div>
 
+  <h3>Inverse-warp sampling: NN vs Bilinear (pseudocode)</h3>
+<div class="grid two">
+  <figure>
+    <figcaption><b>Nearest Neighbor (fast, blocky)</b></figcaption>
+    <pre class="mono small">
+# For each output pixel (X, Y):
+p_src = H_inv * [X, Y, 1]^T
+x = p_src.x / p_src.w
+y = p_src.y / p_src.w
+
+# Round to the closest integer pixel center
+ix = round(x)
+iy = round(y)
+
+# Bounds check (0 ≤ ix &lt; W, 0 ≤ iy &lt; H)
+if 0 ≤ ix &lt; srcW and 0 ≤ iy &lt; srcH:
+    out[Y,X] = src[iy, ix]
+else:
+    out[Y,X] = 0  # or keep alpha=0
+    </pre>
+    <p class="small muted" style="margin-top:6px">
+      <b>Notes.</b> One lookup per pixel. Great speed; edges and high-frequency detail will look jagged (“stair-steps”).
+      Treat pixel <em>centers</em> as integer coordinates (0,1,2,…) for consistency with your clicks and math.
+    </p>
+  </figure>
+
+  <figure>
+    <figcaption><b>Bilinear (smoother, ~2× work)</b></figcaption>
+    <pre class="mono small">
+# For each output pixel (X, Y):
+p_src = H_inv * [X, Y, 1]^T
+x = p_src.x / p_src.w
+y = p_src.y / p_src.w
+
+# Integer floor and local offsets
+x0 = floor(x);      y0 = floor(y)
+dx = x - x0;        dy = y - y0
+
+# Neighbor indices
+x1 = x0 + 1;        y1 = y0 + 1
+
+# Bounds: need full 2×2 neighborhood
+if 0 ≤ x0 &lt; srcW-1 and 0 ≤ y0 &lt; srcH-1:
+    I00 = src[y0, x0]
+    I10 = src[y0, x1]
+    I01 = src[y1, x0]
+    I11 = src[y1, x1]
+
+    # Bilinear weights (separable)
+    w00 = (1 - dx) * (1 - dy)
+    w10 = dx       * (1 - dy)
+    w01 = (1 - dx) * dy
+    w11 = dx       * dy
+
+    out[Y,X] = w00*I00 + w10*I10 + w01*I01 + w11*I11
+else:
+    out[Y,X] = 0  # or alpha=0
+    </pre>
+    <p class="small muted" style="margin-top:6px">
+      <b>Weight math.</b> Think “linear in x” then “linear in y.” The four weights sum to 1:
+      \((1\!-\!dx)(1\!-\!dy) + dx(1\!-\!dy) + (1\!-\!dx)dy + dx\,dy = 1\).
+      Gives smoother edges/text; requires four fetches per pixel.
+    </p>
+  </figure>
+</div>
+
+<div class="callout">
+  <ul class="small">
+    <li><b>Inverse vs forward:</b> I always use <code>H<sup>-1</sup></code> to map output → input to avoid holes.</li>
+    <li><b>Coordinate convention:</b> pixel centers at integer coords. If your library assumes half-pixel offsets
+        (e.g., 0.5), shift consistently for both methods.</li>
+    <li><b>Boundary handling:</b> For bilinear, require a full 2×2 neighborhood; otherwise fall back to NN or set alpha=0.</li>
+    <li><b>Timing intuition:</b> Bilinear ≈ 4× reads + multiplies per pixel, so it’s slower but higher quality.</li>
+  </ul>
+</div>
+
+
   <h3>Rectification setup</h3>
   <p>
     To verify that homography and warping are correct, I rectified single photos that contain known rectangular surfaces.
