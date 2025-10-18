@@ -1,0 +1,9 @@
+{
+  "image": "data/converted/rect_blackboard/blackboard_left.jpg",
+  "W": 1491,
+  "H": 1590,
+  "chosen_order": "A (TL,TR,BR,BL)",
+  "coverage_percent": 100.0,
+  "nn_time_ms": 320.5615831539035,
+  "bil_time_ms": 442.66149983741343
+}

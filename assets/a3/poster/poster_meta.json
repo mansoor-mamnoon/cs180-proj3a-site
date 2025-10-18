@@ -1,0 +1,9 @@
+{
+  "image": "data/converted/rect_poster/poster_right.jpg",
+  "W": 2425,
+  "H": 1239,
+  "chosen_order": "A (TL,TR,BR,BL)",
+  "coverage_percent": 99.99970045680338,
+  "nn_time_ms": 358.3831249270588,
+  "bil_time_ms": 517.9758330341429
+}

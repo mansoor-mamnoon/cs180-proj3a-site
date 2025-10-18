@@ -1,0 +1,9 @@
+{
+  "image": "data/converted/rect_box/box_bottom.jpg",
+  "W": 1934,
+  "H": 1949,
+  "chosen_order": "A (TL,TR,BR,BL)",
+  "coverage_percent": 99.99941634747064,
+  "nn_time_ms": 380.4698749445379,
+  "bil_time_ms": 648.4654580708593
+}

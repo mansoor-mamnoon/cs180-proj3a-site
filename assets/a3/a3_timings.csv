@@ -1,0 +1,13 @@
+tag,image,width,height,chosen_order,coverage_percent,nn_time_ms,bil_time_ms
+poster,data/converted/rect_poster/poster_right.jpg,2414,1231,"A (TL,TR,BR,BL)",100.00,222.59,334.35
+blackboard,data/converted/rect_blackboard/blackboard_left.jpg,1508,1595,"A (TL,TR,BR,BL)",100.00,178.21,266.79
+macbook,data/converted/rect_macbook/macbook_right.jpg,2007,1859,"A (TL,TR,BR,BL)",100.00,265.46,441.84
+box,data/converted/rect_box/box_bottom.jpg,1947,1934,"A (TL,TR,BR,BL)",100.00,277.47,445.05
+poster,data/converted/rect_poster/poster_right.jpg,2414,1244,"A (TL,TR,BR,BL)",100.00,288.24,490.79
+blackboard,data/converted/rect_blackboard/blackboard_left.jpg,1498,1641,"A (TL,TR,BR,BL)",100.00,245.43,443.23
+macbook,data/converted/rect_macbook/macbook_right.jpg,2009,1863,"A (TL,TR,BR,BL)",100.00,360.90,670.83
+box,data/converted/rect_box/box_bottom.jpg,1944,1948,"B (TL,BL,BR,TR)",100.00,277.18,432.17
+poster,data/converted/rect_poster/poster_right.jpg,2425,1239,"A (TL,TR,BR,BL)",100.00,358.38,517.98
+blackboard,data/converted/rect_blackboard/blackboard_left.jpg,1491,1590,"A (TL,TR,BR,BL)",100.00,320.56,442.66
+macbook,data/converted/rect_macbook/macbook_right.jpg,2008,1842,"A (TL,TR,BR,BL)",100.00,390.17,683.92
+box,data/converted/rect_box/box_bottom.jpg,1934,1949,"A (TL,TR,BR,BL)",100.00,380.47,648.47

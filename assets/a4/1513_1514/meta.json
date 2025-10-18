@@ -1,0 +1,16 @@
+{
+  "left_image": "/Users/muneermamnoon/Desktop/COMPSCI 180/cs180-proj3a/submission/data/converted/mosaic_1513_1514/IMG_1513.jpg",
+  "center_image": "/Users/muneermamnoon/Desktop/COMPSCI 180/cs180-proj3a/submission/data/converted/mosaic_1513_1514/IMG_1514.jpg",
+  "canvas_W": 7265,
+  "canvas_H": 5103,
+  "canvas_min_x": -3223,
+  "canvas_min_y": -1048,
+  "left_coverage_percent": 57.87303502426747,
+  "center_coverage_percent": 32.8882771277816,
+  "timing_ms": {
+    "warp_left_bilinear": 6433.779082959518,
+    "composite_total": 4822.735541965812,
+    "end_to_end": 11256.51462492533
+  },
+  "feather_falloff_px": 80
+}

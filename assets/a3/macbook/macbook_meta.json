@@ -1,0 +1,9 @@
+{
+  "image": "data/converted/rect_macbook/macbook_right.jpg",
+  "W": 2008,
+  "H": 1842,
+  "chosen_order": "A (TL,TR,BR,BL)",
+  "coverage_percent": 100.0,
+  "nn_time_ms": 390.1663329452276,
+  "bil_time_ms": 683.9197080116719
+}

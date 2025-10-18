@@ -3,221 +3,840 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>CS180/280A – Proj3A: Image Warping & Mosaicing</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css"/>
+  <title>CS180/280A — Project 3A/3B • Image Warping, Mosaicing & Autostitching</title>
+
+  <style>
+    :root{
+      --bg:#0b0d12; --panel:#0f131c; --ink:#ecf2ff; --muted:#aab9d4;
+      --acc:#7bd3ff; --ok:#3ad69f; --warn:#ffd166; --chip:#141a28;
+      --line:#1f2a3e; --line2:#27344b;
+    }
+    html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);
+      font:17px/1.7 Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
+    header,main,footer{max-width:1280px;margin:0 auto;padding:28px}
+    header{padding-top:36px}
+    h1{font-size:40px;margin:0 0 6px;font-weight:800;letter-spacing:.2px}
+    .sub{color:var(--muted);margin:0 0 3px}
+    .byline{color:var(--muted);margin:0 0 8px}
+    h2{margin:28px 0 12px;font-size:28px;font-weight:800}
+    h3{margin:22px 0 10px;font-size:22px}
+    h4{margin:14px 0 8px;font-size:18px}
+    p,li{color:#d7dfeb}
+    code,.mono{font:14px/1.5 ui-monospace,Menlo,Consolas,monospace;background:var(--chip);color:#d7f5ff;padding:2px 6px;border-radius:6px}
+    pre{background:var(--chip);padding:14px;border-radius:12px;overflow:auto;border:1px solid var(--line2)}
+    .small{font-size:13px}
+    section{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:24px;margin:22px 0;box-shadow:0 2px 0 #0b0f18}
+    .grid{display:grid;gap:14px}
+    .grid.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .grid.three{grid-template-columns:repeat(3,minmax(0,1fr))}
+    figure{margin:0;background:#0b1120;border:1px solid var(--line2);border-radius:14px;overflow:hidden}
+    figure img{display:block;width:100%;height:auto}
+    figcaption{padding:10px 12px;color:var(--muted);font-size:14px;border-top:1px solid var(--line2)}
+    .callout{background:#0d141f;border:1px solid #203048;border-radius:12px;padding:14px}
+    .deliverables{border-left:4px solid var(--ok);background:#0d1b15}
+    .muted{color:#a4b5cf}
+    /* Pretty 3×3 matrix */
+    .Hbox{display:inline-block;background:#0c1220;border:1px solid #2a3750;border-radius:12px;padding:12px 16px;position:relative}
+    .Hbox:before,.Hbox:after{content:"";position:absolute;top:8px;bottom:8px;width:6px}
+    .Hbox:before{left:6px;border-left:3px solid #2a3750}
+    .Hbox:after{right:6px;border-right:3px solid #2a3750}
+    .Hrow{display:flex;gap:18px;justify-content:space-between}
+    .Hcell{min-width:94px;text-align:right;font:15px/1.6 ui-monospace,Menlo,Consolas,monospace;color:#dff3ff;white-space:nowrap}
+    /* Compact timings table (4 cols so it never overflows) */
+    .csvwrap{background:#0c1220;border:1px solid #2a3750;border-radius:12px;padding:10px;overflow:auto}
+    .csvtable{width:100%;border-collapse:collapse;table-layout:fixed;font-size:14px}
+    .csvtable th,.csvtable td{border-bottom:1px solid #27344b;padding:10px 12px}
+    .csvtable th:nth-child(1){width:44%}
+    .csvtable th:nth-child(2),.csvtable th:nth-child(3),.csvtable th:nth-child(4){width:18.6%}
+    .num{text-align:right}
+    /* Print tweaks */
+    @media print{
+      :root{--bg:#ffffff;--panel:#ffffff;--ink:#000;--muted:#333;--chip:#f3f5f7;--line:#ddd;--line2:#ddd}
+      body{background:#fff;color:#000}
+      section{box-shadow:none}
+      figure{background:#fff}
+      .Hbox,.csvwrap,pre{background:#f6f8fb;border-color:#ccc}
+      .Hcell{color:#000}
+      a{color:#000;text-decoration:none}
+      .grid.three{grid-template-columns:repeat(2,1fr)}
+    }
+    @media (max-width:1100px){.grid.three{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media (max-width:760px){.grid.two,.grid.three{grid-template-columns:1fr}}
+    /* Pretty matrix with bracket rails */
+.matrix{
+  display:grid; grid-template-columns:repeat(3, auto);
+  gap:8px 16px; padding:12px 18px; position:relative;
+  background:#0c1220; border:1px solid #2a3750; border-radius:12px;
+  font:15px/1.4 ui-monospace,Menlo,Consolas,monospace; color:#dff3ff;
+}
+.matrix::before,.matrix::after{content:"";position:absolute;top:6px;bottom:6px;width:8px;border:0 solid #2a3750}
+.matrix::before{left:6px;border-left-width:3px}
+.matrix::after{right:6px;border-right-width:3px}
+.matrix .cell{min-width:74px;text-align:right;white-space:nowrap}
+.H-grid figure{break-inside:avoid}
+.Hraw{margin-top:8px;border:1px dashed #2a3750;border-radius:10px;padding:8px 10px;background:#0c1220;color:#cfe9ff}
+.matrix{
+  display:grid; grid-template-columns:repeat(3, auto);
+  gap:8px 16px; padding:12px 18px; position:relative;
+  background:#0c1220; border:1px solid #2a3750; border-radius:12px;
+  font:15px/1.3 ui-monospace,Menlo,Consolas,monospace; color:#dff3ff;
+}
+.matrix::before,.matrix::after{content:"";position:absolute;top:6px;bottom:6px;width:8px;border:0 solid #2a3750}
+.matrix::before{left:6px;border-left-width:3px}
+.matrix::after{right:6px;border-right-width:3px}
+/* fixed width cells so columns line up, even with exp notation */
+.matrix .cell{width:120px; text-align:right; white-space:nowrap}
+.matrix .cell.small{opacity:.9}
+/* Hide the raw "backup" matrix completely */
+.Hraw { display: none !important; }
+
+  </style>
+
+  <!-- MathJax (inline \( … \) and display \[ … \]) -->
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['\\(','\\)'], ['$', '$']], displayMath: [['\\[','\\]']] },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" async></script>
 </head>
+
 <body>
-<header class="container">
-  <h1>Image Warping &amp; Mosaicing (Proj 3A)</h1>
-  <p class="sub">CS180/280A – Intro to Computer Vision & Computational Photography</p>
-  <p class="byline">Author: Mansoor Mamnoon • UC Berkeley</p>
+<header>
+  <h1>Image Warping, Mosaicing &amp; Autostitching</h1>
+  <p class="sub">CS180/280A — Computational Photography</p>
+  <p class="byline">Author: Mansoor Mamnoon • UC&nbsp;Berkeley</p>
 </header>
 
-<main class="container">
+<main>
+
+  <!-- ===================== OVERVIEW ===================== -->
   <section id="overview">
     <h2>Overview</h2>
     <p>
-      The goal of this assignment is to implement image mosaicing end-to-end: acquire projective image pairs,
-      recover homographies via point correspondences, warp images with inverse mapping using both
-      nearest-neighbor and bilinear interpolation (from scratch), and blend into mosaics. I avoided
-      high-level functions like <code>cv2.findHomography</code> and <code>cv2.warpPerspective</code> as required,
-      and implemented the Normalized DLT solver, inverse warping, and simple feathering.
+      This project had me explore mosaic creations in two ways: the manual way and the automated way. <strong>Part&nbsp;A</strong> (manual) builds homographies from clicked
+      correspondences via <em>normalized</em> DLT, warps images with <b>Nearest-Neighbor</b> and <b>Bilinear</b> sampling, and blends with
+      feathered alpha ramps. <strong>Part&nbsp;B</strong> (automatic) replaces clicks with <b>Harris</b> → <b>ANMS</b> → <b>8×8 descriptors</b> from
+      <b>40×40</b> windows → <b>Lowe ratio</b> → <b>4-point RANSAC</b> for robust autostitching.
+    </p>
+    <div class="callout deliverables">
+      <strong>Deliverables coverage:</strong>
+      <ul>
+        <li><b>A.1</b> Five two-view scenes (fixed COP).</li>
+        <li><b>A.2</b> <span class="mono">computeH</span> with normalized DLT, explicit linear system \(3\times3\) \(H\).</li>
+        <li><b>A.3</b> NN vs Bilinear inverse warps; qualitative comparison + timings.</li>
+        <li><b>A.4</b> Feather-blended mosaics (all five).</li>
+        <li><b>B.1–B.4</b> Harris→ANMS→Descriptors→Matching→RANSAC and automatic mosaics, with A.4 vs B.4 comparison.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ===================== A.1 ===================== -->
+  <section id="a1">
+    <h2>A.1: Shooting the Data (Fixed COP, Projective Overlap)</h2>
+    <p>I kept the center of projection fixed and rotated the camera for ~50–60% overlap. These pairs drive every mosaic created in this project.</p>
+    <div class="grid two">
+      <figure><img src="assets/a1/1491_1492_left.jpg" alt=""><figcaption><b>Clark Kerr — Lounge</b> (Left)</figcaption></figure>
+      <figure><img src="assets/a1/1491_1492_center.jpg" alt=""><figcaption><b>Clark Kerr — Lounge</b> (Center)</figcaption></figure>
+
+      <figure><img src="assets/a1/1495_1496_left.jpg" alt=""><figcaption><b>Clark Kerr — Ginkgo Courtyard</b> (Left)</figcaption></figure>
+      <figure><img src="assets/a1/1495_1496_center.jpg" alt=""><figcaption><b>Clark Kerr — Ginkgo Courtyard</b> (Center)</figcaption></figure>
+
+      <figure><img src="assets/a1/1497_1498_left.jpg" alt=""><figcaption><b>Pathway by Dining (Building&nbsp;12 backside)</b> (Left)</figcaption></figure>
+      <figure><img src="assets/a1/1497_1498_center.jpg" alt=""><figcaption><b>Pathway by Dining (Building&nbsp;12 backside)</b> (Center)</figcaption></figure>
+
+      <figure><img src="assets/a1/1511_1512_left.jpg" alt=""><figcaption><b>Washroom Basins — Clark Kerr</b> (Left)</figcaption></figure>
+      <figure><img src="assets/a1/1511_1512_center.jpg" alt=""><figcaption><b>Washroom Basins — Clark Kerr</b> (Center)</figcaption></figure>
+
+      <figure><img src="assets/a1/1513_1514_left.jpg" alt=""><figcaption><b>Long Corridor — Clark Kerr Building&nbsp;12</b> (Left)</figcaption></figure>
+      <figure><img src="assets/a1/1513_1514_center.jpg" alt=""><figcaption><b>Long Corridor — Clark Kerr Building&nbsp;12</b> (Center)</figcaption></figure>
+    </div>
+    <div class="callout deliverables"><strong>A.1 satisfied:</strong> multiple two-view sets with projective motion and generous overlap.</div>
+  </section>
+
+<!-- ===================== A.2 ===================== -->
+<!-- ===================== A.2 ===================== -->
+<section id="a2">
+  <h2>A.2 – Recovering Homographies (Normalized DLT)</h2>
+
+  <p>
+    To align a photo pair, I estimate a <b>homography</b>—a 3×3 matrix <span class="mono">H</span> that warps points from
+    one image onto the other. With homogeneous coordinates, the relation is
+    <span class="mono">p′ ∼ H p</span> for <span class="mono">p=[x,y,1]^T</span> and <span class="mono">p′=[u,v,1]^T</span>.
+    Because projective mappings are defined up to scale, I parameterize
+    \(
+      H=\begin{bmatrix}
+      h_1&h_2&h_3\\
+      h_4&h_5&h_6\\
+      h_7&h_8&1
+      \end{bmatrix}.
+    \)
+  </p>
+
+  <h3>1) From the mapping to linear equations</h3>
+  <p>
+    Expanding \(p′=Hp\) and clearing the denominators gives two linear equations per correspondence:
+  </p>
+
+  <div class="boxed-math">
+    \(
+    \begin{aligned}
+    u(h_7x+h_8y+1) &= h_1x + h_2y + h_3,\\[2pt]
+    v(h_7x+h_8y+1) &= h_4x + h_5y + h_6.
+    \end{aligned}
+    \)
+  </div>
+
+  <p>
+    Rearranged into “coefficients × unknowns = right-hand-side” (unknowns are \(h_1,\dots,h_8\)):
+  </p>
+
+  <p class="math-block">
+    \(
+    \underbrace{
+    \begin{bmatrix}
+      x & y & 1 & 0 & 0 & 0 & -ux & -uy\\
+      0 & 0 & 0 & x & y & 1 & -vx & -vy
+    \end{bmatrix}}_{\displaystyle A_i}
+    \;
+    \underbrace{\begin{bmatrix}h_1\\h_2\\h_3\\h_4\\h_5\\h_6\\h_7\\h_8\end{bmatrix}}_{\displaystyle h}
+    =
+    \underbrace{\begin{bmatrix}u\\v\end{bmatrix}}_{\displaystyle b_i}.
+    \)
+  </p>
+
+  <h3>2) Building and solving the system</h3>
+  <p>
+    I stack all point pairs, so the final system is \(Ah=b\) with size \(2N\times8\).
+    Using more than four correspondences makes it over-determined; I solve by least squares
+    (SVD or \((A^TA)^{-1}A^Tb\) give the same result numerically). Then I reshape \(h\) into \(H\) by appending the final 1.
+  </p>
+
+  <h3>3) Normalization (keeps the numbers sane)</h3>
+  <p>
+    Raw pixel coordinates can make \(A\) badly conditioned. I apply the standard <b>normalized DLT</b>:
+    translate points so their centroid is at the origin and scale so the average distance is \(\sqrt{2}\)
+    (similarity transforms \(T_1\) for the source and \(T_2\) for the target). I solve for \(H_n\) using
+    normalized coordinates, then de-normalize:
+    <span class="mono">H = T₂⁻¹ · Hₙ · T₁</span>.
+  </p>
+
+  <h3>4) Worked example — full numeric system for pair of images of Clark Kerr Lounge</h3>
+  <p class="muted">Below are the eight clicked correspondences (left → center) and the resulting 16 linear equations.</p>
+
+  <pre class="mono small">
+Points (x, y) → (u, v)
+01) (163.573, 872.664)  →  (1675.136, 785.391)
+02) (432.373, 816.809)  →  (1881.100, 736.518)
+03) (812.882, 1623.209)  →  (2174.336, 1466.118)
+04) (1046.773, 1602.264)  →  (2369.827, 1452.155)
+05) (1367.936, 2324.882)  →  (2673.536, 2164.300)
+06) (2073.100, 1298.555)  →  (3479.936, 1155.427)
+07) (1542.482, 918.045)  →  (2903.936, 771.427)
+08) (1298.118, 1029.755)  →  (2642.118, 886.627)
+  </pre>
+
+  <p class="muted">Two equations per point (numbers multiply \(h_1,\dots,h_8\); right-hand side is \(u\) or \(v\)):</p>
+  <pre class="mono small">
+01a) 163.572727·h1 + 872.663636·h2 + 1·h3 + (-274041.440518)·h7 + (-1463182.056395)·h8 = 1675.136364
+01b) 163.572727·h4 + 872.663636·h5 + 1·h6 + (-128449.574049)·h7 + (-685032.029752)·h8 = 785.390909
+
+02a) 432.372727·h1 + 816.809091·h2 + 1·h3 + (-812483.677273)·h7 + (-1533579.789545)·h8 = 1881.100000
+02b) 432.372727·h4 + 816.809091·h5 + 1·h6 + (-318115.390909)·h7 + (-601030.749091)·h8 = 736.518182
+
+03a) 812.881818·h1 + 1623.209091·h2 + 1·h3 + (-1768218.754545)·h7 + (-3532556.665455)·h8 = 2174.336364
+03b) 812.881818·h4 + 1623.209091·h5 + 1·h6 + (-1190495.918182)·h7 + (-2379660.909545)·h8 = 1466.118182
+
+04a) 1046.772727·h1 + 1602.263636·h2 + 1·h3 + (-2479665.909091)·h7 + (-3795017.245455)·h8 = 2369.827273
+04b) 1046.772727·h4 + 1602.263636·h5 + 1·h6 + (-151820.530909)·h7 + (-2333114.699091)·h8 = 1452.154545
+
+05a) 1367.936364·h1 + 2324.881818·h2 + 1·h3 + (-3655661.893333)·h7 + (-6210716.480000)·h8 = 2673.536364
+05b) 1367.936364·h4 + 2324.881818·h5 + 1·h6 + (-2962412.247273)·h7 + (-5036334.118182)·h8 = 2164.300000
+
+06a) 2073.100000·h1 + 1298.554545·h2 + 1·h3 + (-7221898.710000)·h7 + (-4527124.512273)·h8 = 3479.936364
+06b) 2073.100000·h4 + 1298.554545·h5 + 1·h6 + (-2394132.325455)·h7 + (-1499397.767727)·h8 = 1155.427273
+
+07a) 1542.481818·h1 + 918.045455·h2 + 1·h3 + (-4477916.954545)·h7 + (-2663456.600000)·h8 = 2903.936364
+07b) 1542.481818·h4 + 918.045455·h5 + 1·h6 + (-1189666.787955)·h7 + (-707617.560000)·h8 = 771.427273
+
+08a) 1298.118182·h1 + 1029.754545·h2 + 1·h3 + (-3429112.236364)·h7 + (-2725981.050909)·h8 = 2642.118182
+08b) 1298.118182·h4 + 1029.754545·h5 + 1·h6 + (-1151562.158182)·h7 + (-913093.494545)·h8 = 886.627273
+  </pre>
+
+  <h3>5) Visualizing correspondences</h3>
+  <p class="muted">I clicked distinctive corners/edges (window frames, edges, intersections) and draw red lines to confirm geometry.</p>
+  <div class="grid two">
+    <figure><img src="assets/a2/1491_1492/matches.png" alt=""><figcaption>Clark Kerr Lounge</figcaption></figure>
+    <figure><img src="assets/a2/1495_1496/matches.png" alt=""><figcaption>Ginkgo Courtyard</figcaption></figure>
+    <figure><img src="assets/a2/1497_1498/matches.png" alt=""><figcaption>Pathway near Dining</figcaption></figure>
+    <figure><img src="assets/a2/1511_1512/matches.png" alt=""><figcaption>Washroom Basins</figcaption></figure>
+    <figure><img src="assets/a2/1513_1514/matches.png" alt=""><figcaption>Long Corridor</figcaption></figure>
+  </div>
+
+  <h3>6) Final homographies</h3>
+  <p class="muted">Read directly from <span class="mono">assets/a2/&lt;tag&gt;/H_matrix.txt</span> and rendered below.</p>
+  <div class="grid two H-grid">
+    <figure><figcaption>Clark Kerr Lounge</figcaption><div class="matrix" id="Hmat-1491_1492" data-src="assets/a2/1491_1492/H_matrix.txt"></div></figure>
+    <figure><figcaption>Ginkgo Courtyard</figcaption><div class="matrix" id="Hmat-1495_1496" data-src="assets/a2/1495_1496/H_matrix.txt"></div></figure>
+    <figure><figcaption>Pathway near Dining</figcaption><div class="matrix" id="Hmat-1497_1498" data-src="assets/a2/1497_1498/H_matrix.txt"></div></figure>
+    <figure><figcaption>Washroom Basins</figcaption><div class="matrix" id="Hmat-1511_1512" data-src="assets/a2/1511_1512/H_matrix.txt"></div></figure>
+    <figure><figcaption>Long Corridor</figcaption><div class="matrix" id="Hmat-1513_1514" data-src="assets/a2/1513_1514/H_matrix.txt"></div></figure>
+  </div>
+
+  <div class="callout deliverables">
+    <b>What I’m turning in:</b> clear DLT setup, normalization, one full numeric system (1491↔1492), correspondence grids, and \(3\times3\) matrices.
+  </div>
+</section>
+
+
+
+ <!-- ===================== A.3 ===================== -->
+<section id="a3">
+  <h2>A.3 — Image Warping and Rectification</h2>
+
+  <p>
+    I implemented two inverse-warping methods from scratch to map an image through a homography.
+    Each output pixel queries its source location via \(H^{-1}\) and samples from the original image.
+    This avoids empty regions and lets me compare two interpolation strategies: <b>Nearest Neighbor</b> and <b>Bilinear</b>.
+  </p>
+
+  <div class="callout">
+    <p><b>Interpolation methods:</b></p>
+    <ul>
+      <li><b>Nearest Neighbor:</b> round to the closest pixel and copy its value. Simple and fast, but edges look jagged.</li>
+      <li><b>Bilinear:</b> weighted average of the four nearest pixels. Roughly twice as slow, but smoother lines and text.</li>
+      <li>I treat pixel centers as integer coordinates so interpolation math stays consistent.</li>
+    </ul>
+  </div>
+
+  <h3>Rectification setup</h3>
+  <p>
+    To verify that homography and warping are correct, I rectified single photos that contain known rectangular surfaces.
+    For each image I clicked four corners (<code>im1_pts</code>), defined a perfect rectangle (<code>im2_pts</code>) as
+    \([0,0],[W-1,0],[W-1,H-1],[0,H-1]\), solved for \(H = \texttt{compute\_homography(im1\_pts, im2\_pts)}\),
+    then warped with both methods.
+  </p>
+
+  <div class="callout">
+    <b>Rectification deliverables (what I show below):</b>
+    <ul>
+      <li>Original with a corner overlay so the selected quadrilateral is visible</li>
+      <li>Rectified outputs for both Nearest Neighbor and Bilinear</li>
+      <li>Saved correspondences (points 1 and 2) and the 3x3 homography matrix printed inline</li>
+      <li>Timing comparison and a short quality discussion</li>
+    </ul>
+  </div>
+
+  <h3>Clicked corners and correspondence data</h3>
+  <p class="muted">
+    These are the exact numbers used for the rectifications. Points are ordered TL, TR, BR, BL.
+  </p>
+
+  <div class="grid two">
+    <figure>
+      <img src="assets/a3/poster/poster_corners_preview.png" alt="Poster corners preview">
+      <figcaption><b>Poster</b> — clicked corners overlay</figcaption>
+    </figure>
+    <figure>
+      <img src="assets/a3/blackboard/blackboard_corners_preview.png" alt="Blackboard corners preview">
+      <figcaption><b>Blackboard</b> — clicked corners overlay</figcaption>
+    </figure>
+    <figure>
+      <img src="assets/a3/macbook/macbook_corners_preview.png" alt="Macbook corners preview">
+      <figcaption><b>Macbook</b> — clicked corners overlay</figcaption>
+    </figure>
+    <figure>
+      <img src="assets/a3/box/box_corners_preview.png" alt="Box corners preview">
+      <figcaption><b>Box</b> — clicked corners overlay</figcaption>
+    </figure>
+  </div>
+
+  <h4>Poster correspondences and H</h4>
+  <pre class="mono small">
+im1_pts (source):
+1360.954545 1095.863636
+3723.863636  663.863636
+3782.772727 2300.227273
+1360.954545 1936.954545
+
+im2_pts (destination rectangle):
+0.000000    0.000000
+2424.000000 0.000000
+2424.000000 1238.000000
+0.000000    1238.000000
+
+H (3x3):
+4.500139658960025102e+00  2.293356014803285487e-15 -6.124485524041915596e+03
+6.178220899088769924e-01  3.379299612986428336e+00 -4.544079343793247972e+03
+9.033481958668375042e-04  3.431322226008242418e-05  1.000000000000000000e+00
+  </pre>
+
+  <h4>Blackboard correspondences and H</h4>
+  <pre class="mono small">
+im1_pts (source):
+1354.409091  130.409091
+2738.772727  811.136364
+2699.500000 1881.318182
+1305.318182 2238.045455
+
+im2_pts (destination rectangle):
+0.000000    0.000000
+1490.000000 0.000000
+1490.000000 1589.000000
+0.000000    1589.000000
+
+H (3x3):
+3.653375588519183759e-01  8.509415190650368097e-03 -4.959262160587541644e+02
+-2.436990308245193249e-01 4.955994713402485652e-01  2.654375062819558480e+02
+-2.362292632830544472e-04 -1.195585486604139590e-05  1.000000000000000000e+00
+  </pre>
+
+  <h4>Macbook correspondences and H</h4>
+  <pre class="mono small">
+im1_pts (source):
+ 644.227273  640.954545
+2673.318182  460.954545
+2617.681818 2673.318182
+ 719.500000 2110.409091
+
+im2_pts (destination rectangle):
+0.000000    0.000000
+2007.000000 0.000000
+2007.000000 1841.000000
+0.000000    1841.000000
+
+H (3x3):
+1.754873178972251146e+00 -8.989328088276497819e-02 -1.072919655083902853e+03
+1.209278861938540839e-01  1.363187080730718037e+00 -9.516459980186070879e+02
+3.028157237188478781e-04 -5.916343997319576384e-05  1.000000000000000000e+00
+  </pre>
+
+  <h3>Rectified results (Original → NN → Bilinear)</h3>
+  <p>
+    Each sequence shows the original region, then the two rectified outputs. The difference in sharpness and aliasing is easiest to see around edges and text.
+  </p>
+
+  <div class="grid three">
+    <figure><img src="assets/a3/poster/input_original.jpg" alt=""><figcaption>Poster — Original</figcaption></figure>
+    <figure><img src="assets/a3/poster/poster_rect_nn.jpg" alt=""><figcaption>Poster — Nearest Neighbor</figcaption></figure>
+    <figure><img src="assets/a3/poster/poster_rect_bil.jpg" alt=""><figcaption>Poster — Bilinear</figcaption></figure>
+
+    <figure><img src="assets/a3/blackboard/input_original.jpg" alt=""><figcaption>Blackboard — Original</figcaption></figure>
+    <figure><img src="assets/a3/blackboard/blackboard_rect_nn.jpg" alt=""><figcaption>Blackboard — Nearest Neighbor</figcaption></figure>
+    <figure><img src="assets/a3/blackboard/blackboard_rect_bil.jpg" alt=""><figcaption>Blackboard — Bilinear</figcaption></figure>
+
+    <figure><img src="assets/a3/macbook/input_original.jpg" alt=""><figcaption>Macbook — Original</figcaption></figure>
+    <figure><img src="assets/a3/macbook/macbook_rect_nn.jpg" alt=""><figcaption>Macbook — Nearest Neighbor</figcaption></figure>
+    <figure><img src="assets/a3/macbook/macbook_rect_bil.jpg" alt=""><figcaption>Macbook — Bilinear</figcaption></figure>
+
+    <figure><img src="assets/a3/box/input_original.jpg" alt=""><figcaption>Box — Original</figcaption></figure>
+    <figure><img src="assets/a3/box/box_rect_nn.jpg" alt=""><figcaption>Box — Nearest Neighbor</figcaption></figure>
+    <figure><img src="assets/a3/box/box_rect_bil.jpg" alt=""><figcaption>Box — Bilinear</figcaption></figure>
+  </div>
+
+  <h4>Runtime comparison</h4>
+  <table class="table" style="width:100%">
+    <thead><tr><th>Image</th><th>NN (ms)</th><th>Bilinear (ms)</th></tr></thead>
+    <tbody>
+      <tr><td>Poster</td><td>358.4</td><td>518.0</td></tr>
+      <tr><td>Blackboard</td><td>320.6</td><td>442.7</td></tr>
+      <tr><td>Macbook</td><td>390.2</td><td>683.9</td></tr>
+      <tr><td>Box</td><td>380.5</td><td>648.5</td></tr>
+    </tbody>
+  </table>
+
+  <p class="muted" style="margin-top:6px">
+    Nearest neighbor is consistently faster but shows aliasing. Bilinear takes longer and yields much smoother surfaces and text.
+    The rectifications appear fronto-parallel, which confirms that the computed homographies and inverse-warping implementations are correct.
+  </p>
+
+  <div class="callout deliverables">
+    <strong>A.3 deliverables satisfied:</strong>
+    <ul>
+      <li>Custom inverse-warping for Nearest Neighbor and Bilinear</li>
+      <li>At least two rectifications shown (I included four)</li>
+      <li>Corner overlays plus the exact im1_pts, im2_pts, and 3x3 H printed on the page</li>
+      <li>Side by side comparisons and timing measurements with a short discussion of speed and quality</li>
+    </ul>
+  </div>
+</section>
+
+
+<!-- ===================== A.4 ===================== -->
+<section id="a4">
+  <h2>A.4 — Manual Mosaics (warp left → center + feather blend)</h2>
+
+  <p>
+    Pipeline (manual): I click ~8–10 correspondences (A.2) and solve for
+    \(H_{\text{left}\rightarrow\text{center}}\). I transform the four corners of the left image to size
+    the canvas, add a translation so all pixels are ≥0, then <b>inverse-warp</b> the left image into the canvas
+    (bilinear sampling; clamp when outside). For blending I build per-pixel alphas:
+    <span class="mono">α_left</span> is the normalized distance-to-edge of the warped-left mask (blurred a bit);
+    <span class="mono">α_center</span> is 1 in the center image and tapers to 0 in overlap. Final composite:
+    \[
+      I = \frac{α_{\text{left}} L + α_{\text{center}} C}{α_{\text{left}} + α_{\text{center}} + 1\text{e-6}}
+    \]
+    This yields gentle seams while keeping sharp detail.
+  </p>
+
+  <!-- Scene 1 -->
+  <h3>Clark Kerr Lounge (1491_1492)</h3>
+  <div class="grid three">
+    <figure><img src="assets/a1/1491_1492_left.jpg" alt="Lounge — Left"><figcaption>Source — Left</figcaption></figure>
+    <figure><img src="assets/a1/1491_1492_center.jpg" alt="Lounge — Center"><figcaption>Source — Center (reference)</figcaption></figure>
+    <figure><img src="assets/a4/1491_1492/mosaic.jpg" alt="Lounge — Mosaic"><figcaption>Manual mosaic (Left warped to Center)</figcaption></figure>
+  </div>
+
+  <!-- Scene 2 -->
+  <h3>Ginkgo Courtyard (1495_1496)</h3>
+  <div class="grid three">
+    <figure><img src="assets/a1/1495_1496_left.jpg" alt="Ginkgo — Left"><figcaption>Source — Left</figcaption></figure>
+    <figure><img src="assets/a1/1495_1496_center.jpg" alt="Ginkgo — Center"><figcaption>Source — Center (reference)</figcaption></figure>
+    <figure><img src="assets/a4/1495_1496/mosaic.jpg" alt="Ginkgo — Mosaic"><figcaption>Manual mosaic</figcaption></figure>
+  </div>
+
+  <!-- Scene 3 -->
+  <h3>Pathway near Dining (1497_1498)</h3>
+  <div class="grid three">
+    <figure><img src="assets/a1/1497_1498_left.jpg" alt="Pathway — Left"><figcaption>Source — Left</figcaption></figure>
+    <figure><img src="assets/a1/1497_1498_center.jpg" alt="Pathway — Center"><figcaption>Source — Center (reference)</figcaption></figure>
+    <figure><img src="assets/a4/1497_1498/mosaic.jpg" alt="Pathway — Mosaic"><figcaption>Manual mosaic</figcaption></figure>
+  </div>
+
+  <!-- Scene 4 -->
+  <h3>Washroom Basins (1511_1512)</h3>
+  <div class="grid three">
+    <figure><img src="assets/a1/1511_1512_left.jpg" alt="Basins — Left"><figcaption>Source — Left</figcaption></figure>
+    <figure><img src="assets/a1/1511_1512_center.jpg" alt="Basins — Center"><figcaption>Source — Center (reference)</figcaption></figure>
+    <figure><img src="assets/a4/1511_1512/mosaic.jpg" alt="Basins — Mosaic"><figcaption>Manual mosaic</figcaption></figure>
+  </div>
+
+  <!-- Scene 5 -->
+  <h3>Long Corridor (1513_1514)</h3>
+  <div class="grid three">
+    <figure><img src="assets/a1/1513_1514_left.jpg" alt="Corridor — Left"><figcaption>Source — Left</figcaption></figure>
+    <figure><img src="assets/a1/1513_1514_center.jpg" alt="Corridor — Center"><figcaption>Source — Center (reference)</figcaption></figure>
+    <figure><img src="assets/a4/1513_1514/mosaic.jpg" alt="Corridor — Mosaic"><figcaption>Manual mosaic</figcaption></figure>
+  </div>
+
+  <div class="callout deliverables">
+    <strong>A.4 deliverable:</strong> for each scene, show the two sources and the resulting manual mosaic; blend is the feathered alpha ramp described above.
+  </div>
+</section>
+
+
+
+  <!-- ===================== B.1 ===================== -->
+  <section id="b1">
+    <h2>B.1: Harris Corners → ANMS (why I needed both)</h2>
+
+    <p>
+      I start with <b>Harris corners</b>. At each pixel I compute image gradients \(I_x\) and \(I_y\), then the <b>second-moment matrix</b>
+      \(M = \begin{bmatrix} I_{xx} & I_{xy} \\ I_{xy} & I_{yy} \end{bmatrix}\), where \(I_{xx}=I_x^2\), \(I_{yy}=I_y^2\), \(I_{xy}=I_xI_y\), all smoothed.
+      A corner gets a high score when intensity changes strongly in <em>two directions</em>. I use the trace-normalized score
+      \(R = \det(M)\,/\,[\operatorname{trace}(M)+\varepsilon]\) (no \(k\) term).
+    </p>
+    <div class="callout">
+      <p><b>Plain-language definitions:</b></p>
+      <ul>
+        <li><b>Gradient</b> \(I_x, I_y\): how fast the image gets brighter or darker as you move horizontally or vertically.</li>
+        <li><b>\(\det(M)\)</b>: how “2-D” the change is: large when there’s structure in both directions (a true corner), small on flat areas or a single straight edge.</li>
+        <li><b>\(\operatorname{trace}(M)\)</b>: the total amount of gradient energy (both directions added up).</li>
+        <li><b>“Great recall”</b>: Harris finds <em>most real corners</em> in the scene (it rarely misses), but it also fires a lot on busy edges and repeated textures: so precision isn’t great yet.</li>
+      </ul>
+    </div>
+    <p>
+      To fix the crowding and improve precision, I apply <b>Adaptive Non-Maximal Suppression (ANMS)</b>.
+      For every detected corner, I measure a <b>suppression radius</b>: how far you must move to find a <em>stronger</em> corner.
+      I keep the points with the largest radii: the ones that are both strong and well-spaced.
+      I set the <b>robustness constant</b> \(c_{\text{robust}}=0.9\): this means a neighbor must be at least 90% as strong to count as “stronger.”
+      A higher value (e.g., 0.95) is stricter and spreads points more; a lower one keeps more clustered points.
+    </p>
+    
+
+    <div class="grid two">
+      <figure><img src="assets/b1/1491_1492_left/harris_overlay.png" alt=""><figcaption>Clark Kerr Lounge — Left (Harris, pre-ANMS)</figcaption></figure>
+      <figure><img src="assets/b1/1491_1492_left/anms_overlay.png" alt=""><figcaption>Clark Kerr Lounge — Left (ANMS kept)</figcaption></figure>
+      <figure><img src="assets/b1/1491_1492_center/harris_overlay.png" alt=""><figcaption>Clark Kerr Lounge — Right (Harris)</figcaption></figure>
+      <figure><img src="assets/b1/1491_1492_center/anms_overlay.png" alt=""><figcaption>Clark Kerr Lounge — Right (ANMS)</figcaption></figure>
+
+      <figure><img src="assets/b1/1495_1496_left/harris_overlay.png" alt=""><figcaption>Ginkgo Courtyard — Left (Harris)</figcaption></figure>
+      <figure><img src="assets/b1/1495_1496_left/anms_overlay.png" alt=""><figcaption>Ginkgo Courtyard — Left (ANMS)</figcaption></figure>
+      <figure><img src="assets/b1/1495_1496_center/harris_overlay.png" alt=""><figcaption>Ginkgo Courtyard — Right (Harris)</figcaption></figure>
+      <figure><img src="assets/b1/1495_1496_center/anms_overlay.png" alt=""><figcaption>Ginkgo Courtyard — Right (ANMS)</figcaption></figure>
+
+      <figure><img src="assets/b1/1497_1498_left/harris_overlay.png" alt=""><figcaption>Pathway near Dining — Left (Harris)</figcaption></figure>
+      <figure><img src="assets/b1/1497_1498_left/anms_overlay.png" alt=""><figcaption>Pathway near Dining — Left (ANMS)</figcaption></figure>
+      <figure><img src="assets/b1/1497_1498_center/harris_overlay.png" alt=""><figcaption>Pathway near Dining — Right (Harris)</figcaption></figure>
+      <figure><img src="assets/b1/1497_1498_center/anms_overlay.png" alt=""><figcaption>Pathway near Dining — Right (ANMS)</figcaption></figure>
+
+      <figure><img src="assets/b1/1511_1512_left/harris_overlay.png" alt=""><figcaption>Washroom Basins — Left (Harris)</figcaption></figure>
+      <figure><img src="assets/b1/1511_1512_left/anms_overlay.png" alt=""><figcaption>Washroom Basins — Left (ANMS)</figcaption></figure>
+      <figure><img src="assets/b1/1511_1512_center/harris_overlay.png" alt=""><figcaption>Washroom Basins — Right (Harris)</figcaption></figure>
+      <figure><img src="assets/b1/1511_1512_center/anms_overlay.png" alt=""><figcaption>Washroom Basins — Right (ANMS)</figcaption></figure>
+
+      <figure><img src="assets/b1/1513_1514_left/harris_overlay.png" alt=""><figcaption>Long Corridor — Left (Harris)</figcaption></figure>
+      <figure><img src="assets/b1/1513_1514_left/anms_overlay.png" alt=""><figcaption>Long Corridor — Left (ANMS)</figcaption></figure>
+      <figure><img src="assets/b1/1513_1514_center/harris_overlay.png" alt=""><figcaption>Long Corridor — Right (Harris)</figcaption></figure>
+      <figure><img src="assets/b1/1513_1514_center/anms_overlay.png" alt=""><figcaption>Long Corridor — Right (ANMS)</figcaption></figure>
+    </div>
+
+    <div class="callout deliverables" style="margin-top:10px">
+      <strong>B.1 satisfied:</strong> Harris and ANMS overlays for all five pairs, with math updated and rendered.
+    </div>
+  </section>
+
+  <!-- ===================== B.2 ===================== -->
+  <section id="b2">
+    <h2>B.2: 8×8 Descriptors from 40×40 Windows</h2>
+
+    <p>
+      I convert RGB to grayscale using \(Y = 0.299R + 0.587G + 0.114B\).
+      These are the <b>Rec. 601 luma weights</b>: they approximate human sensitivity (green matters most, then red, then blue).
+      Using luma makes the descriptor follow <em>perceived structure</em> (edges, corners) rather than raw channel magnitudes,
+      which improves matching across scenes with different colors or white balance.
+    </p>
+    
+    <div class="grid two">
+      <figure><img src="assets/b2/1491_1492_left/features_grid.png" alt=""><figcaption>Lounge — Left: example 8×8 patches</figcaption></figure>
+      <figure><img src="assets/b2/1491_1492_center/features_grid.png" alt=""><figcaption>Lounge — Center: example 8×8 patches</figcaption></figure>
+
+      <figure><img src="assets/b2/1495_1496_left/features_grid.png" alt=""><figcaption>Ginkgo Courtyard — Left</figcaption></figure>
+      <figure><img src="assets/b2/1495_1496_center/features_grid.png" alt=""><figcaption>Ginkgo Courtyard — Center</figcaption></figure>
+
+      <figure><img src="assets/b2/1497_1498_left/features_grid.png" alt=""><figcaption>Pathway near Dining — Left</figcaption></figure>
+      <figure><img src="assets/b2/1497_1498_center/features_grid.png" alt=""><figcaption>Pathway near Dining — Center</figcaption></figure>
+
+      <figure><img src="assets/b2/1511_1512_left/features_grid.png" alt=""><figcaption>Washroom Basins — Left</figcaption></figure>
+      <figure><img src="assets/b2/1511_1512_center/features_grid.png" alt=""><figcaption>Washroom Basins — Center</figcaption></figure>
+
+      <figure><img src="assets/b2/1513_1514_left/features_grid.png" alt=""><figcaption>Long Corridor — Left</figcaption></figure>
+      <figure><img src="assets/b2/1513_1514_center/features_grid.png" alt=""><figcaption>Long Corridor — Center</figcaption></figure>
+    </div>
+    <div class="callout deliverables"><strong>B.2 satisfied:</strong> descriptor construction explained and shown across all scenes.</div>
+  </section>
+
+  <!-- ===================== B.3 ===================== -->
+<section id="b3">
+  <h2>B.3: Descriptor Matching (L2 + Lowe Ratio + Mutual Check)</h2>
+
+  <p>
+    Using the 8×8 descriptors from B.2 (each a 64-D vector), I compute **all-pairs Euclidean distances** between
+    left-image and center-image descriptors. For each feature in the left image:
+  </p>
+  <ol>
+    <li>Find the best and second-best distances <span class="mono">d₁</span> and <span class="mono">d₂</span>.</li>
+    <li>Apply the <strong>Lowe ratio test</strong>: accept only if <span class="mono">d₁ / d₂ &lt; 0.8</span> (best is noticeably better than next best).</li>
+    <li>Enforce <strong>mutual consistency</strong>: A’s best match is B, and B’s best match is A.</li>
+  </ol>
+
+  <div class="callout">
+    <strong>Why this works (simple terms):</strong>
+    <ul>
+      <li><em>L2 distance</em> measures “how different” two patches are, number by number.</li>
+      <li>The <em>ratio</em> guards against ambiguous texture (e.g., repetitive bricks) by requiring a clear winner.</li>
+      <li><em>Mutual check</em> removes one-way, accidental pairings.</li>
+    </ul>
+  </div>
+
+  <h3 style="margin-top:18px">Matched-feature visualizations</h3>
+  <p class="muted">Green lines connect accepted matches after the ratio + mutual filter.</p>
+  <div class="grid two">
+    <figure><img src="assets/b3/1491_1492/matches.png" alt=""><figcaption>Clark Kerr Lounge — matches</figcaption></figure>
+    <figure><img src="assets/b3/1495_1496/matches.png" alt=""><figcaption>Ginkgo Courtyard — matches</figcaption></figure>
+    <figure><img src="assets/b3/1497_1498/matches.png" alt=""><figcaption>Pathway near Dining — matches</figcaption></figure>
+    <figure><img src="assets/b3/1511_1512/matches.png" alt=""><figcaption>Washroom Basins — matches</figcaption></figure>
+    <figure><img src="assets/b3/1513_1514/matches.png" alt=""><figcaption>Long Corridor — matches</figcaption></figure>
+  </div>
+
+  <div class="callout deliverables" style="margin-top:10px">
+    <strong>Deliverables ✓</strong> Matched-feature figures for all five scenes using Lowe ratio + mutual check.
+  </div>
+</section>
+
+  <!-- ===================== B.4 ===================== -->
+<section id="b4">
+  <h2>B.4 – 4-Point RANSAC + Automatic Mosaics</h2>
+
+  <p>
+    After descriptor matching (B.3), I still have outliers. I run <b>RANSAC</b> over matches:
+    repeatedly sample 4 pairs, estimate a candidate \(H\) by DLT, count inliers using reprojection error,
+    and keep the model with the most inliers.
+  </p>
+
+  <div class="callout">
+    <ul>
+      <li><b>Minimal sample</b>: 4 point pairs define a homography.</li>
+      <li><b>Model fit</b>: DLT on those 4 pairs → \(H\).</li>
+      <li><b>Inlier test</b>: for each remaining match \((x,y)\!\to\!(u,v)\), warp \((x,y)\) with \(H\), measure Euclidean error to \((u,v)\).
+          Count it as an inlier if error &lt; \(\tau\) (I used a few pixels).</li>
+      <li><b>Refit</b>: after the best consensus set is chosen, refit \(H\) using all inliers (least squares) for stability.</li>
+    </ul>
+  </div>
+
+  <h3>Inlier matches (RANSAC)</h3>
+  <div class="grid two">
+    <figure><img src="assets/b4/1491_1492/matches_inliers.png" alt=""><figcaption>Lounge — inliers</figcaption></figure>
+    <figure><img src="assets/b4/1495_1496/matches_inliers.png" alt=""><figcaption>Ginkgo Courtyard — inliers</figcaption></figure>
+    <figure><img src="assets/b4/1497_1498/matches_inliers.png" alt=""><figcaption>Pathway near Dining — inliers</figcaption></figure>
+    <figure><img src="assets/b4/1511_1512/matches_inliers.png" alt=""><figcaption>Washroom Basins — inliers</figcaption></figure>
+    <figure><img src="assets/b4/1513_1514/matches_inliers.png" alt=""><figcaption>Long Corridor — inliers</figcaption></figure>
+  </div>
+
+  <h3>Auto mosaics</h3>
+  <div class="grid two">
+    <figure><img src="assets/b4/1491_1492/mosaic.jpg" alt=""><figcaption>Lounge — auto mosaic</figcaption></figure>
+    <figure><img src="assets/b4/1495_1496/mosaic.jpg" alt=""><figcaption>Ginkgo Courtyard — auto mosaic</figcaption></figure>
+    <figure><img src="assets/b4/1497_1498/mosaic.jpg" alt=""><figcaption>Pathway near Dining — auto mosaic</figcaption></figure>
+    <figure><img src="assets/b4/1511_1512/mosaic.jpg" alt=""><figcaption>Washroom Basins — auto mosaic</figcaption></figure>
+    <figure><img src="assets/b4/1513_1514/mosaic.jpg" alt=""><figcaption>Long Corridor — auto mosaic</figcaption></figure>
+  </div>
+
+  <h3>Manual (A.4) vs Automatic (B.4): pros & cons</h3>
+  <div class="callout">
+    <ul>
+      <li><b>Manual (A.4) — Pros:</b> precise when I click clean, well-spread corners; fewer outlier issues; seams can be gently placed by eye.
+          <b>Cons:</b> slow and subjective; a couple of bad clicks will skew \(H\); tedious across many scenes.</li>
+      <li><b>Automatic (B.4) — Pros:</b> fast and repeatable; dense features align fine structure better; RANSAC handles many wrong matches.
+          <b>Cons:</b> may miss weak-textured areas; still sensitive to parallax/exposure differences; needs reasonable thresholds.</li>
+    </ul>
+  </div>
+
+  <h3>Manual vs Auto: visual comparison</h3>
+  <div class="grid two">
+    <figure><img src="assets/a4/1491_1492/mosaic.jpg" alt=""><figcaption>Lounge — A.4 manual</figcaption></figure>
+    <figure><img src="assets/b4/1491_1492/mosaic.jpg" alt=""><figcaption>Lounge — B.4 auto</figcaption></figure>
+
+    <figure><img src="assets/a4/1495_1496/mosaic.jpg" alt=""><figcaption>Ginkgo — A.4 manual</figcaption></figure>
+    <figure><img src="assets/b4/1495_1496/mosaic.jpg" alt=""><figcaption>Ginkgo — B.4 auto</figcaption></figure>
+
+    <figure><img src="assets/a4/1497_1498/mosaic.jpg" alt=""><figcaption>Pathway — A.4 manual</figcaption></figure>
+    <figure><img src="assets/b4/1497_1498/mosaic.jpg" alt=""><figcaption>Pathway — B.4 auto</figcaption></figure>
+
+    <figure><img src="assets/a4/1511_1512/mosaic.jpg" alt=""><figcaption>Basins — A.4 manual</figcaption></figure>
+    <figure><img src="assets/b4/1511_1512/mosaic.jpg" alt=""><figcaption>Basins — B.4 auto</figcaption></figure>
+
+    <figure><img src="assets/a4/1513_1514/mosaic.jpg" alt=""><figcaption>Corridor — A.4 manual</figcaption></figure>
+    <figure><img src="assets/b4/1513_1514/mosaic.jpg" alt=""><figcaption>Corridor — B.4 auto</figcaption></figure>
+  </div>
+
+  <div class="callout deliverables">
+    <b>What I’m turning in:</b> RANSAC inlier visualizations, auto mosaics, and a frank manual vs auto comparison.
+  </div>
+</section>
+
+
+
+  <!-- ===================== REFLECTIONS ===================== -->
+  <section id="reflections">
+    <h2>Reflections</h2>
+    <p>
+      Manual clicking gave me control: careful, well-spaced points produced gentle seams, but it was time-consuming and click-biased.
+      With Harris→ANMS→RANSAC, alignments were sharper with far less effort; fine structures (window mullions, brick edges) were often
+      <em>better aligned</em> than my manual tries. Warped image boundaries were a bit more visible in auto outputs for the reason above,
+      but overall the automatic pipeline clearly wins for reproducibility and speed.
     </p>
   </section>
 
-  <section id="a1">
-    <h2>A.1 — Shoot &amp; Digitize (20 pts)</h2>
-    <p><strong>Requirement:</strong> Show at least two sets of images with projective transformations (fixed center of projection, rotate camera). I captured several two-image sets; here are three representative pairs:</p>
-    <div class="grid two">
-      <figure><img src="assets/a1/car_left.jpg" alt="car left"><figcaption>Car — Left</figcaption></figure>
-      <figure><img src="assets/a1/car_center.jpg" alt="car center"><figcaption>Car — Center</figcaption></figure>
-
-      <figure><img src="assets/a1/frathouse_left.jpg" alt="frathouse left"><figcaption>Frathouse — Left</figcaption></figure>
-      <figure><img src="assets/a1/frathouse_center.jpg" alt="frathouse center"><figcaption>Frathouse — Center</figcaption></figure>
-
-      <figure><img src="assets/a1/building12b_left.jpg" alt="building12b left"><figcaption>Building 12B — Left</figcaption></figure>
-      <figure><img src="assets/a1/building12b_center.jpg" alt="building12b center"><figcaption>Building 12B — Center</figcaption></figure>
-    </div>
-    <details><summary>How I shot the data (fixed COP, overlap, etc.)</summary>
-      <ul>
-        <li>I held the phone at one spot (fixed center of projection) and rotated horizontally.</li>
-        <li>I targeted ~50–60% overlap between frames (good for reliable registration).</li>
-        <li>I avoided fisheye/barrel distortion, shot within seconds to keep lighting consistent.</li>
-      </ul>
-    </details>
-  </section>
-
-  <section id="a2">
-    <h2>A.2 — Recover Homographies (20 pts)</h2>
-    <p><strong>Requirement:</strong> Implement <code>computeH(im1_pts, im2_pts)</code> with a linear system (Normalized DLT + least-squares), show correspondences, show system setup, and show the recovered homography.</p>
-
-    <h3>Method (Normalized DLT)</h3>
-    <ol>
-      <li>Normalize points in each image (zero-mean, average radius &rarr; √2).</li>
-      <li>Build the 2N×9 matrix A from correspondences using the homography constraints.</li>
-      <li>Solve <em>Ah = 0</em> via SVD (right singular vector with smallest singular value).</li>
-      <li>Denormalize: <code>H = T2⁻¹ · H_normalized · T1</code> and scale so H[2,2]=1.</li>
-    </ol>
-
-    <h3>Linear system (Ah = 0) — what I actually built</h3>
-<p>
-  For each correspondence <code>(x, y) ↔ (u, v)</code> (after normalization), I add two rows to A:
-</p>
-<pre class="mono small">
-Row(2i)   = [ 0  0  0   -x  -y  -1    v·x   v·y   v ]
-Row(2i+1) = [ x  y  1    0   0   0   -u·x  -u·y  -u ]
-</pre>
-<p>
-  Stacking all pairs gives a <code>2N×9</code> matrix A. I solve <code>Ah = 0</code> with SVD (smallest right-singular vector), then denormalize and scale so <code>H[2,2] = 1</code>.
-</p>
-
-<details><summary>A-matrix preview (first 4 rows) — Car (Left→Center)</summary>
-<pre class="mono small">
-Using points:
-(x,y) → (u,v)
-(1737.97,  670.19) → (1741.46,  666.70)
-(3616.08,  631.79) → (2237.17,  806.34)
-
-A (first 4 rows):
-[  0       0       0   -1737.97   -670.19   -1    666.70*1737.97   666.70*670.19   666.70 ]
-[ 1737.97  670.19  1      0         0        0   -1741.46*1737.97 -1741.46*670.19 -1741.46 ]
-[  0       0       0   -3616.08   -631.79   -1    806.34*3616.08   806.34*631.79   806.34 ]
-[ 3616.08  631.79  1      0         0        0   -2237.17*3616.08 -2237.17*631.79 -2237.17 ]
-</pre>
-</details>
-
-
-    <h3>Datasets & Homographies</h3>
-
-    <article class="pair">
-      <h4>Car (Left → Center)</h4>
-      <div class="grid two">
-        <figure><img src="assets/a1/car_left.jpg" alt=""><figcaption>Image 1 (left)</figcaption></figure>
-        <figure><img src="assets/a1/car_center.jpg" alt=""><figcaption>Image 2 (center)</figcaption></figure>
-      </div>
-      <pre class="mono">H =
-0.589587  -0.380770  675.092438
-0.109207   0.775520    6.960543
-0.000054  -0.000108    1.000000</pre>
-      <details><summary>Sample correspondences (im1_pts → im2_pts)</summary>
-        <pre class="mono small">{"im1_pts": [[1737.97, 670.19], [3616.08, 631.79], [2743.35, 1364.88], [3434.55, 1375.35], [2858.55, 1808.23], [3549.75, 1773.32], [2760.81, 2803.14], [3867.43, 2604.15]],
-"im2_pts": [[1741.46, 666.70], [2237.17, 806.34], [1434.26, 1434.70], [2041.68, 1466.12], [1559.94, 1864.08], [2135.94, 1790.77], [1423.79, 2845.03], [2411.72, 2530.85]]}</pre>
-      </details>
-    </article>
-
-    <article class="pair">
-      <h4>Corridor (Left → Center)</h4>
-      <div class="grid two">
-        <figure><img src="assets/a2/corridor_left.jpg" alt=""><figcaption>Image 1 (left)</figcaption></figure>
-        <figure><img src="assets/a2/corridor_center.jpg" alt=""><figcaption>Image 2 (center)</figcaption></figure>
-      </div>
-      <pre class="mono">H =
-0.944952  -0.163477   87.152115
-0.006115   0.756270 1008.131307
-0.000013  -0.000106   1.000000</pre>
-      <details><summary>Sample correspondences (im1_pts → im2_pts)</summary>
-        <pre class="mono small">{"im1_pts": [[662.77, 1043.72], [3724.30, 1047.21], [969.97, 478.19], [3186.70, 520.08], [1036.30, 324.59], [2247.65, 359.50], [1116.59, 160.52], [2160.37, 177.97]],
-"im2_pts": [[603.43, 2010.70], [3664.95, 1944.37], [976.95, 1424.23], [3061.03, 1441.68], [1022.34, 1288.08], [2160.37, 1298.55], [1120.08, 1137.97], [2087.06, 1155.43]]}</pre>
-      </details>
-    </article>
-
-    <article class="pair">
-      <h4>Poster (Rectification target)</h4>
-      <div class="grid two">
-        <figure><img src="assets/a2/poster_source.jpg" alt=""><figcaption>Source (skewed)</figcaption></figure>
-        <figure><div class="placeholder">Rectified result shown in A.3</div><figcaption>Rectified</figcaption></figure>
-      </div>
-      <pre class="mono">H =
-0.121353  0.027744 1274.635582
--0.205073 0.539614  634.987366
--0.000131 -0.000002   1.000000</pre>
-      <details><summary>Sample correspondences (im1_pts → ideal square)</summary>
-        <pre class="mono small">{"im1_pts":[[27.43,890.12],[34.41,2394.70],[882.70,1665.10],[1465.68,2108.45],[2327.94,73.25],[2310.48,342.05],[3951.21,914.55],[3947.72,2370.26]],
-"im2_pts":[[1322.55,1113.54],[1343.50,1933.90],[1629.75,1528.95],[1874.12,1846.63],[2188.30,296.66],[2275.57,474.70],[3710.34,677.17],[3783.65,2279.50]]}</pre>
-      </details>
-    </article>
-  </section>
-
-  <section id="a3">
-    <h2>A.3 — Warp Images (20 pts)</h2>
-    <p><strong>Requirement:</strong> Implement <code>warpImageNearestNeighbor</code> and <code>warpImageBilinear</code> via inverse warping. Apply to 2+ rectification examples and compare quality/speed.</p>
-    <h3>Rectifications (Original → Nearest Neighbor → Bilinear)</h3>
-<div class="grid three">
-  <figure><img src="assets/a3/poster_original.jpg" alt=""><figcaption>Poster — Original (skewed)</figcaption></figure>
-  <figure><img src="assets/a3/poster_rect_nn.jpg" alt=""><figcaption>Poster — NN</figcaption></figure>
-  <figure><img src="assets/a3/poster_rect_bil.jpg" alt=""><figcaption>Poster — Bilinear</figcaption></figure>
-
-  <figure><img src="assets/a3/blackboard_original.jpg" alt=""><figcaption>Blackboard — Original</figcaption></figure>
-  <figure><img src="assets/a3/blackboard_rect_nn.jpg" alt=""><figcaption>Blackboard — NN</figcaption></figure>
-  <figure><img src="assets/a3/blackboard_rect_bil.jpg" alt=""><figcaption>Blackboard — Bilinear</figcaption></figure>
-
-  <figure><img src="assets/a3/macbook_original.jpg" alt=""><figcaption>Macbook — Original</figcaption></figure>
-  <figure><img src="assets/a3/macbook_rect_nn.jpg" alt=""><figcaption>Macbook — NN</figcaption></figure>
-  <figure><img src="assets/a3/macbook_rect_bil.jpg" alt=""><figcaption>Macbook — Bilinear</figcaption></figure>
-
-  <figure><img src="assets/a3/box_original.jpg" alt=""><figcaption>Box — Original</figcaption></figure>
-  <figure><img src="assets/a3/box_rect_nn.jpg" alt=""><figcaption>Box — NN</figcaption></figure>
-  <figure><img src="assets/a3/box_rect_bil.jpg" alt=""><figcaption>Box — Bilinear</figcaption></figure>
-</div>
-
-
-    <h3>Timing & Coverage (from my CSV & meta)</h3>
-    <pre class="mono small">poster: NN=288.24 ms, Bilinear=490.79 ms, coverage≈100%
-blackboard: NN=245.43 ms, Bilinear=443.23 ms, coverage≈100%
-macbook: NN=360.90 ms, Bilinear=670.83 ms, coverage≈100%
-box: NN=277.18 ms, Bilinear=432.17 ms, coverage≈100%</pre>
-
-    <details><summary>Homography snapshots for rectifications (H, chosen order)</summary>
-      <pre class="mono small">Blackboard H:
-0.3681827  -0.0060811  -494.2819
--0.251258  0.5084417   273.1977
--0.0002393 0.0000003     1.0
-Order: A (TL,TR,BR,BL)  W=1498 H=1641  Coverage≈100%
-
-Box H:
-0.8969243  4.2886547  -5126.7396
-5.5533951  0.2292686  -9442.3916
-0.0011980  0.0000870      1.0
-Order: B (TL,BL,BR,TR)  W=1944 H=1948  Coverage≈100%
-
-Macbook H:
-1.7513486  -0.1007413  -1052.2326
-0.1149208   1.3343584   -928.54599
-0.0003098  -0.0000748      1.0
-Order: A (TL,TR,BR,BL)  W=2009 H=1863  Coverage≈100%</pre>
-    </details>
-
-    <p><strong>Nearest Neighbor vs Bilinear:</strong> NN is faster but blocky; Bilinear is slower but smoother (less aliasing). All warps used inverse mapping to avoid holes, with bounds computed from transformed corners / chosen rect sizes.</p>
-  </section>
-
-  <section id="a4">
-    <h2>A.4 — Blend into Mosaics (20 pts)</h2>
-    <p><strong>Requirement:</strong> Show 3 mosaics with source images; use weighted averaging (alpha feathering) to reduce seams; explain the procedure.</p>
-    <h3>My Three Mosaics</h3>
-    <div class="grid three">
-      <figure><img src="assets/a4/mosaic_car.jpg" alt=""><figcaption>Car — Mosaic</figcaption></figure>
-      <figure><img src="assets/a4/mosaic_frathouse.jpg" alt=""><figcaption>Frathouse — Mosaic</figcaption></figure>
-      <figure><img src="assets/a4/mosaic_building12b.jpg" alt=""><figcaption>Building 12B — Mosaic</figcaption></figure>
-    </div>
-
-    <details><summary>Blending procedure & canvas sizing</summary>
-      <ul>
-        <li>I compute H (left→center), inverse-warp the left into the center’s canvas.</li>
-        <li>I pre-size the mosaic canvas from the transformed corners to avoid clipping.</li>
-        <li>I use simple feathering: center image gets alpha 1 in the middle that linearly falls to 0 at the edges; the warped image gets a complementary alpha; per-pixel weighted average blends them.</li>
-      </ul>
-      <pre class="mono small">A4 notes:
-Building12b: canvas 6275×4316, time_warpA≈4039 ms
-Car:        canvas 6663×4601, time_warpA≈3928 ms
-Frathouse:  canvas 6196×4316, time_warpA≈3551 ms</pre>
-    </details>
-  </section>
 </main>
 
-<footer class="container">
-  <p>© 2025 Mansoor Mamnoon </p>
+<footer>
+  <p>© 2025 Mansoor Mamnoon</p>
 </footer>
+
+<script>
+  /* Read assets/a2/<tag>/H_matrix.txt and render a pretty 3x3 + raw fallback. */
+  function parseHTextRobust(txt){
+    // Normalize: remove brackets and non-number separators, but keep e/E for scientific notation.
+    const cleaned = txt
+      .replace(/[^\d\.\-\+\seE,]/g,' ')   // strip brackets and stray chars
+      .replace(/[,\t]+/g,' ')             // commas/tabs -> space
+      .trim();
+  
+    const tokens = cleaned.split(/\s+/).map(Number).filter(Number.isFinite);
+    if (tokens.length >= 9){
+      return [
+        [tokens[0], tokens[1], tokens[2]],
+        [tokens[3], tokens[4], tokens[5]],
+        [tokens[6], tokens[7], tokens[8]],
+      ];
+    }
+  
+    // Fallback: try line-based 3-per-row parsing
+    const rows = txt.trim().split(/\r?\n/).filter(Boolean).map(r =>
+      r.replace(/[^\d\.\-\+\seE,]/g,' ').replace(/[,\t]+/g,' ').trim().split(/\s+/).map(Number)
+    );
+    return [
+      (rows[0]||[]).slice(0,3),
+      (rows[1]||[]).slice(0,3),
+      (rows[2]||[]).slice(0,3),
+    ].map(row => row.map(v => Number.isFinite(v) ? v : NaN));
+  }
+  
+  function formatNumberForMatrix(v){
+  // 1) kill -0.000000 etc.
+  const epsZero = 1e-8;
+  if (!Number.isFinite(v) || Math.abs(v) < epsZero) v = 0;
+
+  // 2) readable scaling: fixed for "normal" range, scientific for extremes
+  const abs = Math.abs(v);
+  if (abs >= 1e4 || (abs > 0 && abs < 1e-4)) {
+    return v.toExponential(3); // e.g., 2.531e+03, -1.143e-05
+  } else {
+    return v.toFixed(6);
+  }
+}
+
+function scaleHtoH33is1(H){
+  // If bottom-right is finite and nonzero, scale so H[2][2] = 1
+  const s = H?.[2]?.[2];
+  if (Number.isFinite(s) && Math.abs(s) > 1e-12){
+    return H.map(row => row.map(x => x / s));
+  }
+  return H;
+}
+
+function renderPrettyMatrix(el, Hraw){
+  el.innerHTML = '';
+  const H = scaleHtoH33is1(Hraw);
+
+  for (let r=0; r<3; r++){
+    for (let c=0; c<3; c++){
+      const d = document.createElement('div');
+      d.className = 'cell';
+      const v = H[r][c];
+      const shown = Number.isFinite(v) ? formatNumberForMatrix(v) : 'NaN';
+      d.textContent = shown;
+      // full precision on hover
+      if (Number.isFinite(v)) d.title = v.toPrecision(12);
+      el.appendChild(d);
+    }
+  }
+}
+  
+  async function hydrateAllH(){
+    document.querySelectorAll('.matrix[id^="Hmat-"]').forEach(async (box) => {
+      const src = box.getAttribute('data-src');
+      const raw = document.getElementById('Hraw-' + box.id.split('Hmat-')[1]);
+      try{
+        const res  = await fetch(src, { cache: 'no-store' });
+        if(!res.ok) throw new Error(res.statusText);
+        const text = await res.text();
+        const H    = parseHTextRobust(text);
+        renderPrettyMatrix(box, H);
+        if (raw) raw.textContent = text.trim(); // always show raw numbers
+      }catch(e){
+        box.textContent = 'Failed to load ' + src;
+        if (raw) raw.textContent = '(could not read file)';
+        console.warn('H loader error:', src, e);
+      }
+    });
+  }
+  
+  document.addEventListener('DOMContentLoaded', hydrateAllH);
+  </script>
+  
+  
 </body>
 </html>
