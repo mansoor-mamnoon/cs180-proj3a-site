@@ -1,4 +1,4 @@
-cd ~/Desktop/"COMPSCI 180"/cs180-proj3a-site
+cd "~/Desktop/COMPSCI 180/cs180-proj3a-site"
 
 cat > .github/workflows/pages.yml << 'EOF'
 name: Deploy static site to Pages

@@ -618,42 +618,91 @@ H (3x3):
   </section>
 
   <!-- ===================== B.3 ===================== -->
+<!-- ===================== B.3 ===================== -->
 <section id="b3">
-  <h2>B.3: Descriptor Matching (L2 + Lowe Ratio + Mutual Check)</h2>
+  <h2>B.3 — Descriptor Matching (L2 + Lowe Ratio + Mutual Check)</h2>
 
   <p>
-    Using the 8×8 descriptors from B.2 (each a 64-D vector), I compute **all-pairs Euclidean distances** between
-    left-image and center-image descriptors. For each feature in the left image:
+    From the 8×8 descriptors built in B.2 (each is a 64-D vector), I match features between the two views using a standard three-step filter:
   </p>
   <ol>
-    <li>Find the best and second-best distances <span class="mono">d₁</span> and <span class="mono">d₂</span>.</li>
-    <li>Apply the <strong>Lowe ratio test</strong>: accept only if <span class="mono">d₁ / d₂ &lt; 0.8</span> (best is noticeably better than next best).</li>
-    <li>Enforce <strong>mutual consistency</strong>: A’s best match is B, and B’s best match is A.</li>
+    <li><b>Distance:</b> compute L2 distance from every left-image descriptor to all right-image descriptors.</li>
+    <li><b>Lowe ratio test:</b> for each left feature, let <span class="mono">d₁</span> and <span class="mono">d₂</span> be the best and second-best distances.
+        Accept only if <span class="mono">d₁/d₂ &lt; 0.8</span> (the winner is clearly better than the runner-up).</li>
+    <li><b>Mutual check:</b> keep a pair only if A’s best is B <i>and</i> B’s best is A (two-way agreement).</li>
   </ol>
 
   <div class="callout">
-    <strong>Why this works (simple terms):</strong>
+    <b>How to read the figures below:</b>
     <ul>
-      <li><em>L2 distance</em> measures “how different” two patches are, number by number.</li>
-      <li>The <em>ratio</em> guards against ambiguous texture (e.g., repetitive bricks) by requiring a clear winner.</li>
-      <li><em>Mutual check</em> removes one-way, accidental pairings.</li>
+      <li><b>Left panel (matches):</b> the two images are placed side-by-side; colored lines connect matched keypoints. 
+          Each color is reused on the next panel’s same-row descriptor visualization.</li>
+      <li><b>Right panel (descriptor pairs):</b> each row shows 
+          <i>Left 40×40 patch</i> → <i>Right 40×40 patch</i> → <i>Left 8×8</i> → <i>Right 8×8</i> → <i>|L−R| 8×8</i>.
+          Good matches have similar 8×8 structure and a low |L−R| heatmap; ambiguous textures look noisier.</li>
     </ul>
   </div>
 
-  <h3 style="margin-top:18px">Matched-feature visualizations</h3>
-  <p class="muted">Green lines connect accepted matches after the ratio + mutual filter.</p>
+  <h3>Matched features + their patch/descriptor evidence</h3>
+  <p class="muted small">
+    Matches are colored consistently with the descriptor-pairs rows (first K rows). Descriptors come from grayscale luma
+    \(Y=0.299R+0.587G+0.114B\), sampled from a blurred 40×40 window and downsampled to 8×8 via 5×5 block averages.
+  </p>
+
+  <!-- One row per scene: matches (left) + descriptor-pairs grid (right) -->
   <div class="grid two">
-    <figure><img src="assets/b3/1491_1492/matches.png" alt=""><figcaption>Clark Kerr Lounge — matches</figcaption></figure>
-    <figure><img src="assets/b3/1495_1496/matches.png" alt=""><figcaption>Ginkgo Courtyard — matches</figcaption></figure>
-    <figure><img src="assets/b3/1497_1498/matches.png" alt=""><figcaption>Pathway near Dining — matches</figcaption></figure>
-    <figure><img src="assets/b3/1511_1512/matches.png" alt=""><figcaption>Washroom Basins — matches</figcaption></figure>
-    <figure><img src="assets/b3/1513_1514/matches.png" alt=""><figcaption>Long Corridor — matches</figcaption></figure>
+    <figure>
+      <img src="assets/b3/1491_1492/matches_colored.png" alt="1491_1492 colored matches">
+      <figcaption>Clark Kerr Lounge — colored mutual matches</figcaption>
+    </figure>
+    <figure>
+      <img src="assets/b3/1491_1492/descriptor_pairs.png" alt="1491_1492 descriptor pairs">
+      <figcaption>Clark Kerr Lounge — matched patches & 8×8 descriptors (rows align with colors)</figcaption>
+    </figure>
+
+    <figure>
+      <img src="assets/b3/1495_1496/matches_colored.png" alt="1495_1496 colored matches">
+      <figcaption>Ginkgo Courtyard — colored mutual matches</figcaption>
+    </figure>
+    <figure>
+      <img src="assets/b3/1495_1496/descriptor_pairs.png" alt="1495_1496 descriptor pairs">
+      <figcaption>Ginkgo Courtyard — matched patches & 8×8 descriptors</figcaption>
+    </figure>
+
+    <figure>
+      <img src="assets/b3/1497_1498/matches_colored.png" alt="1497_1498 colored matches">
+      <figcaption>Pathway near Dining — colored mutual matches</figcaption>
+    </figure>
+    <figure>
+      <img src="assets/b3/1497_1498/descriptor_pairs.png" alt="1497_1498 descriptor pairs">
+      <figcaption>Pathway near Dining — matched patches & 8×8 descriptors</figcaption>
+    </figure>
+
+    <figure>
+      <img src="assets/b3/1511_1512/matches_colored.png" alt="1511_1512 colored matches">
+      <figcaption>Washroom Basins — colored mutual matches</figcaption>
+    </figure>
+    <figure>
+      <img src="assets/b3/1511_1512/descriptor_pairs.png" alt="1511_1512 descriptor pairs">
+      <figcaption>Washroom Basins — matched patches & 8×8 descriptors</figcaption>
+    </figure>
+
+    <figure>
+      <img src="assets/b3/1513_1514/matches_colored.png" alt="1513_1514 colored matches">
+      <figcaption>Long Corridor — colored mutual matches</figcaption>
+    </figure>
+    <figure>
+      <img src="assets/b3/1513_1514/descriptor_pairs.png" alt="1513_1514 descriptor pairs">
+      <figcaption>Long Corridor — matched patches & 8×8 descriptors</figcaption>
+    </figure>
   </div>
 
-  <div class="callout deliverables" style="margin-top:10px">
-    <strong>Deliverables ✓</strong> Matched-feature figures for all five scenes using Lowe ratio + mutual check.
+  <div class="callout deliverables" style="margin-top:12px">
+    <b>Deliverables ✓</b> — Side-by-side matches <i>and</i> per-pair descriptor evidence for all scenes (colored lines ↔ matching row),
+    with Lowe ratio (0.8) and mutual consistency enforced.
   </div>
 </section>
+
 
   <!-- ===================== B.4 ===================== -->
 <section id="b4">
