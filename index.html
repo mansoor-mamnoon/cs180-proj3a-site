@@ -792,14 +792,53 @@ H (3x3):
   </p>
 
   <div class="callout">
-    <ul>
-      <li><b>Minimal sample</b>: 4 point pairs define a homography.</li>
-      <li><b>Model fit</b>: DLT on those 4 pairs → \(H\).</li>
-      <li><b>Inlier test</b>: for each remaining match \((x,y)\!\to\!(u,v)\), warp \((x,y)\) with \(H\), measure Euclidean error to \((u,v)\).
-          Count it as an inlier if error &lt; \(\tau\) (I used a few pixels).</li>
-      <li><b>Refit</b>: after the best consensus set is chosen, refit \(H\) using all inliers (least squares) for stability.</li>
-    </ul>
-  </div>
+  <strong>How RANSAC works:</strong>
+  <ul>
+    <li><b>Goal:</b> We want a homography that follows the true geometry of the scene, even though some matches are wrong (outliers).</li>
+
+    <li> Randomly pick 4 correspondences. Four points are the smallest set that can define a homography.</li>
+
+    <li> Use DLT on those 4 pairs to compute a tentative homography \(H\).</li>
+
+    <li> Warp every other matched point using \(H\). If the reprojection error is below a threshold \(\tau\) (a few pixels), we call that match an <b>inlier</b>. Large-error matches are <b>outliers</b>.</li>
+
+    <li> Repeat N times:</b> Most random samples fail, but eventually one draws 4 correct matches and produces a strong inlier set. I found that <b>N ≈ 2000 iterations</b> gave the most stable mosaics with minimal distortion.</li>
+
+    <li>Once the best consensus set is found, re-estimate \(H\) using <em>all</em> inliers with a least-squares solve. This produces the final, stable homography.</li>
+  </ul>
+
+  <p><b>Why this works:</b> Outliers rarely agree with each other, but inliers reinforce the same geometric model. RANSAC is essentially “random guessing + majority vote” until the true geometry emerges.</p>
+</div>
+
+<div class="callout">
+  <strong>RANSAC pseudocode</strong>
+  <pre class="mono small">
+repeat N times (N = 2000):
+    sample 4 matches
+    H_candidate = fit_homography(4 pairs)
+    inliers = []
+    for each match (x,y) -> (u,v):
+        warp (x,y) using H_candidate
+        if reprojection_error < tau:
+            add to inliers
+    keep model with largest inlier set
+
+H_final = fit_homography(all_inliers)
+  </pre>
+</div>
+
+
+<p>
+  After RANSAC chooses a stable homography, I project one image into the coordinate frame of the other and blend them into a mosaic.
+  I first used a <b>simple alpha feathering mask</b> to downweight pixels near the warped boundary. This produced good alignment but left
+  visible edge artifacts in high-frequency regions (e.g., tiles, window frames).
+</p>
+
+<p>
+  To reduce those seams, I added a <b>Laplacian pyramid blending</b> step. This merges low frequencies smoothly while keeping high-frequency
+  detail sharp, which significantly reduced boundary artifacts. The final mosaics are sharper, more seamless, and more robust to lighting
+  differences and small geometric errors.
+</p>
 
   <h3>Inlier matches (RANSAC)</h3>
   <div class="grid two">
@@ -848,7 +887,7 @@ H (3x3):
   </div>
 
   <div class="callout deliverables">
-    <b>What I’m turning in:</b> RANSAC inlier visualizations, auto mosaics, and a frank manual vs auto comparison.
+    <b>Deliverables:</b> RANSAC inlier visualizations, auto mosaics, and a manual vs auto comparison.
   </div>
 </section>
 
